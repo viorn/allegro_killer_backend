@@ -12,12 +12,28 @@ import org.springframework.web.bind.annotation.*
 class HotbedRestController(
         val hotbedRepository: HotbedRepository
 ) {
+    data class HotbedResponse(
+        val id: Long,
+        val position: Map<String, Any>,
+        val title: String,
+        val body: String
+    )
     @GetMapping
     suspend fun getAround(lat: Double? = null,
-                          lng: Double? = null): Iterable<Hotbed?>? {
+                          lng: Double? = null): Iterable<HotbedResponse>? {
         return hotbedRepository.findInPolygon(createCircle(
             lat!!, lng!!, 10000.0
-        ))
+        )).mapNotNull { hotbed ->
+            HotbedResponse(
+                id = hotbed.id,
+                title = hotbed.title,
+                position = mapOf(
+                    "lat" to hotbed.position.x,
+                    "lng" to hotbed.position.y
+                ),
+                body = hotbed.body
+            )
+        }
     }
 
     data class AddHotbedRequest(
@@ -27,12 +43,23 @@ class HotbedRestController(
         val body: String? = null
     )
     @PostMapping
-    suspend fun addHotbed(@RequestBody hotbedRequest: AddHotbedRequest) {
+    suspend fun addHotbed(@RequestBody hotbedRequest: AddHotbedRequest): HotbedResponse {
+        println("addHotbed:${hotbedRequest}")
         val point = GeometryFactory().createPoint(Coordinate(hotbedRequest.lat!!, hotbedRequest.lng!!))
-        hotbedRepository.save(Hotbed(
+        return hotbedRepository.save(Hotbed(
             body = hotbedRequest.body!!,
             title = hotbedRequest.title!!,
             position = point
-        ))
+        )).let { hotbed ->
+            HotbedResponse(
+                id = hotbed.id,
+                title = hotbed.title,
+                position = mapOf(
+                    "lat" to hotbed.position.x,
+                    "lng" to hotbed.position.y
+                ),
+                body = hotbed.body
+            )
+        }
     }
 }
